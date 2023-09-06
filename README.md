@@ -4,7 +4,7 @@ Modern versions of Python (> 3.7) are relatively harder to decompile. The decomp
 
 Python Snippet Decompiler is a tool to assist during manual decompilation of Python bytecode. The idea is to input small snippets of bytecode instructions which the tool attempts to decompile with pycdc. The instruction provided as input should be free from any control flow instruction. Control flow should be manually handled anyway.
 
-Note: Python 3.11 pyc files are not supported at the moment as the underlying library xdis doesn't support 3.11 at the moment.
+Note: Python 3.11 pyc files are not supported at the moment as the underlying library xdis doesn't support 3.11 currently.
 
 ## Usage
 
