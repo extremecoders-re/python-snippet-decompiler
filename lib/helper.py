@@ -3,9 +3,6 @@ import argparse
 
 def get_codeobject_list(pycfile, magic, backend):
     if backend == "xdis":
-        import sys
-        sys.path.append("xdis.zip")
-
         from xdis.unmarshal import load_code
         from xdis.codetype import Code3
     
@@ -37,9 +34,6 @@ def get_codeobject_list(pycfile, magic, backend):
 
 def build_pyc(pycfile, magic, backend, index, co_bytes, outfile):
     if backend == "xdis":
-        import sys
-        sys.path.append("xdis.zip")
-
         from xdis.load import write_bytecode_file
     elif backend == "native":
         from marshal import dump
