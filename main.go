@@ -11,8 +11,41 @@ import (
 	"golang.design/x/clipboard"
 )
 
-func get_codeobject_list(pycFile string, pycMagic int) []string {
-	cmd := exec.Command("lib\\python\\python.exe", "lib\\helper.py", "list", "--magic", strconv.Itoa(pycMagic), pycFile)
+type BackEndType int
+
+const (
+	BACKEND_XDIS BackEndType = iota
+	BACKEND_NATIVE
+)
+
+type PythonVersion int
+
+const (
+	PYTHON_OTHER PythonVersion = 0
+	PYTHON_3_11  PythonVersion = 311
+	PYTHON_3_12  PythonVersion = 312
+)
+
+func get_codeobject_list(backendType BackEndType, pythonVersion PythonVersion, pycFile string, pycMagic int) []string {
+	var pythonInterp string
+	switch pythonVersion {
+	case PYTHON_3_12:
+		pythonInterp = "lib\\python\\3.12\\python.exe"
+	case PYTHON_3_11:
+		fallthrough
+	case PYTHON_OTHER:
+		pythonInterp = "lib\\python\\3.11\\python.exe"
+	}
+
+	var backendStr string
+	switch backendType {
+	case BACKEND_NATIVE:
+		backendStr = "native"
+	case BACKEND_XDIS:
+		backendStr = "xdis"
+	}
+
+	cmd := exec.Command(pythonInterp, "lib\\helper.py", "list", "--magic", strconv.Itoa(pycMagic), "--backend", backendStr, pycFile)
 
 	output, err := cmd.Output()
 	if err == nil {
@@ -49,17 +82,32 @@ func decompile(filename string) string {
 	return fmt.Sprintf("Error: %s", err)
 }
 
-func build_pyc(pycFile, outFile string, magic int, co_index int, codeBytes string) bool {
-	cmd := exec.Command("lib\\python\\python.exe", "lib\\helper.py", "build", "--magic", strconv.Itoa(magic), "--index", strconv.Itoa(co_index), pycFile, outFile, codeBytes)
+func build_pyc(backendType BackEndType, pythonVersion PythonVersion, pycFile, outFile string, magic int, co_index int, codeBytes string) bool {
+	var pythonInterp string
+	switch pythonVersion {
+	case PYTHON_3_12:
+		pythonInterp = "lib\\python\\3.12\\python.exe"
+	case PYTHON_3_11:
+		fallthrough
+	case PYTHON_OTHER:
+		pythonInterp = "lib\\python\\3.11\\python.exe"
+	}
+
+	var backendStr string
+	switch backendType {
+	case BACKEND_NATIVE:
+		backendStr = "native"
+	case BACKEND_XDIS:
+		backendStr = "xdis"
+	}
+
+	cmd := exec.Command(pythonInterp, "lib\\helper.py", "build", "--magic", strconv.Itoa(magic), "--backend", backendStr, "--index", strconv.Itoa(co_index), pycFile, outFile, codeBytes)
 
 	_, err := cmd.Output()
-	if err == nil {
-		return true
-	}
-	return false
+	return err == nil
 }
 
-func build_UI(pycFile string, magic int, codeObject_list []string) {
+func build_UI(backendType BackEndType, pythonVersion PythonVersion, pycFile string, magic int, codeObject_list []string) {
 	var app = tview.NewApplication()
 
 	code_objects_list := tview.NewList()
@@ -113,7 +161,7 @@ func build_UI(pycFile string, magic int, codeObject_list []string) {
 
 			tf, _ := os.CreateTemp("lib", "temp*.pyc")
 			tf.Close()
-			if build_pyc(pycFile, tf.Name(), magic, co_index, codeBytes) {
+			if build_pyc(backendType, pythonVersion, pycFile, tf.Name(), magic, co_index, codeBytes) {
 				output := decompile(tf.Name())
 				decompiledCode_textview.SetText(output)
 			}
@@ -163,10 +211,25 @@ func main() {
 		return
 	}
 	pycFile := os.Args[1]
+
 	pycMagic := getPycMagic(pycFile)
-	codeObject_list := get_codeobject_list(pycFile, pycMagic)
+	var backendType BackEndType
+	var pythonVersion PythonVersion
+	switch pycMagic {
+	case 0x0DCB: // Python 3.12
+		backendType = BACKEND_NATIVE
+		pythonVersion = PYTHON_3_12
+	case 0x0DA7: // Python 3.11
+		backendType = BACKEND_NATIVE
+		pythonVersion = PYTHON_3_11
+	default:
+		pythonVersion = PYTHON_OTHER
+		backendType = BACKEND_XDIS
+	}
+
+	codeObject_list := get_codeobject_list(backendType, pythonVersion, pycFile, pycMagic)
 
 	if len(codeObject_list) > 0 {
-		build_UI(pycFile, pycMagic, codeObject_list)
+		build_UI(backendType, pythonVersion, pycFile, pycMagic, codeObject_list)
 	}
 }
